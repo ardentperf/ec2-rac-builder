@@ -20,8 +20,10 @@ along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 Instructions:
 1. Sign up for Amazon Web Services (EC2)
 2. Sign up for OpenVPN Lite
-3. Edit "env" file
-4. Execute "run-cluster" script
+3. Install EC2 API Command Line Tools
+4. Install this package
+5. Edit "env" file
+6. Execute "run-cluster" script
 
 
 jeremy.schneider@ardentperf.com
