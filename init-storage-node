@@ -45,7 +45,8 @@ while [ -z "$ADDR" ]; do
 done
 echo "$DOUT"  
 
-until ssh $SSH_OPTS ubuntu@$ADDR date; do echo "boot O.S." >&2; sleep 5; done
+echo "boot O.S." >&2
+until ssh $SSH_OPTS ubuntu@$ADDR date 2>&1; do sleep 5; done
 
 echo "setup iscsi" >&2
 DEVS=(sdf sdg sdh sdi sdj sdk sdl sdm)
@@ -67,9 +68,9 @@ done
 echo 'EOF' >>/tmp/amazon/$1.iscsi
 cat /tmp/amazon/$1.iscsi.tmp >> /tmp/amazon/$1.iscsi
 
-ssh $SSH_OPTS ubuntu@$ADDR sudo apt-get -y install iscsitarget
-scp $SSH_OPTS /tmp/amazon/$1.iscsi ubuntu@$ADDR:/tmp/amazon-iscsi.sh
-ssh $SSH_OPTS ubuntu@$ADDR sudo chmod +x /tmp/amazon-iscsi.sh
-ssh $SSH_OPTS ubuntu@$ADDR sudo bash /tmp/amazon-iscsi.sh
-ssh $SSH_OPTS ubuntu@$ADDR sudo invoke-rc.d iscsitarget restart
+ssh $SSH_OPTS ubuntu@$ADDR sudo apt-get -y install iscsitarget 2>&1
+scp $SSH_OPTS /tmp/amazon/$1.iscsi ubuntu@$ADDR:/tmp/amazon-iscsi.sh 2>&1
+ssh $SSH_OPTS ubuntu@$ADDR sudo chmod +x /tmp/amazon-iscsi.sh 2>&1
+ssh $SSH_OPTS ubuntu@$ADDR sudo bash /tmp/amazon-iscsi.sh 2>&1
+ssh $SSH_OPTS ubuntu@$ADDR sudo invoke-rc.d iscsitarget restart 2>&1
 

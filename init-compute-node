@@ -69,7 +69,8 @@ echo PUBLIC $PUBLIC
 echo PRIVATE $PRIVATE
 echo STORAGE $STORAGE
 
-until ssh $SSH_OPTS root@$ADDR date; do echo "boot O.S." >&2; sleep 5; done
+echo "boot O.S." >&2
+until ssh $SSH_OPTS root@$ADDR date 2>&1; do sleep 5; done
 
 echo "configure O.S." >&2
 cat <<EOF >/tmp/amazon/$1.compute
@@ -118,12 +119,29 @@ cat <<EOF >>/tmp/amazon/$1.compute
   sed '{s/^ca .*/ca ca-private.crt/;s/dev .*/dev tun1/;}' vpncubed-private.conf.orig >vpncubed-private.conf
 
   service openvpn start
+  hostname n$2
 
   echo search ec2.ardentperf.com >>/etc/resolv.conf
+  yum -y install screen
+  cp /etc/ssh/sshd_config /etc/ssh/sshd_config.orig
+  sed '{s/^PasswordAuthentication.*/PasswordAuthentication yes/;
+        s/^PermitRootlogin.*/PermitRootlogin yes/;}' /etc/ssh/sshd_config.orig >/etc/ssh/sshd_config
+  service sshd reload
+  passwd root <<_EOF2
+ec2rac
+ec2rac
+_EOF2
+  passwd oracle <<_EOF2
+ec2rac
+ec2rac
+_EOF2
+  cd /
+  tar xvf /root/oracle-ssh.tar
 EOF
 
-scp $SSH_OPTS $(dirname $0)/rpmforge-release-0.5.1-1.el5.rf.i386.rpm root@$ADDR:/root/
-scp $SSH_OPTS /tmp/amazon/$1.compute root@$ADDR:/tmp/amazon-compute.sh
-ssh $SSH_OPTS root@$ADDR chmod +x /tmp/amazon-compute.sh
-ssh $SSH_OPTS root@$ADDR bash /tmp/amazon-compute.sh
+scp $SSH_OPTS $(dirname $0)/rpmforge-release-0.5.1-1.el5.rf.i386.rpm root@$ADDR:/root/ 2>&1
+scp $SSH_OPTS $(dirname $0)/oracle-ssh.tar root@$ADDR:/root/ 2>&1
+scp $SSH_OPTS /tmp/amazon/$1.compute root@$ADDR:/tmp/amazon-compute.sh 2>&1
+ssh $SSH_OPTS root@$ADDR chmod +x /tmp/amazon-compute.sh 2>&1
+ssh $SSH_OPTS root@$ADDR bash /tmp/amazon-compute.sh 2>&1
 

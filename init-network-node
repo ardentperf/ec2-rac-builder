@@ -36,11 +36,13 @@ while [ -z "$ADDR" ]; do
 done
 echo "$DOUT"  
 
-until curl -u vpncubed:$1 -k https://$ADDR:8000/ | grep "Upload runtime snapshot"; do echo "boot O.S." >&2; sleep 5; done
+echo "boot O.S." >&2
+until curl -u vpncubed:$1 -k https://$ADDR:8000/ 2>&1 | grep "Upload runtime snapshot"; do sleep 5; done
 
 echo "configure switch" >&2
-TOKEN=$(curl -u vpncubed:$1 -k -c /tmp/amazon/$1.cookie https://$ADDR:8000/snapshot | grep "authenticity_token"|sed 's/.*value="\(.*\)".*/\1/')
-curl -u vpncubed:$1 -k -b /tmp/amazon/$1.cookie -F snapshot=@snapshot_$2.gz -F authenticity_token=$TOKEN https://$ADDR:8000/snapshot
+TOKEN=$(curl -u vpncubed:$1 -k -c /tmp/amazon/$1.cookie https://$ADDR:8000/snapshot 2>/dev/null | grep "authenticity_token"|sed 's/.*value="\(.*\)".*/\1/')
+curl -u vpncubed:$1 -k -b /tmp/amazon/$1.cookie -F snapshot=@snapshot_$2.gz -F authenticity_token=$TOKEN https://$ADDR:8000/snapshot 2>&1
 
-until curl -u vpncubed:rac -k https://$ADDR:8000/status | grep "RAC-$2"; do echo "reboot O.S." >&2; sleep 5; done
+echo "reboot O.S." >&2
+until curl -u vpncubed:rac -k https://$ADDR:8000/status 2>&1 | grep "RAC-$2"; do sleep 5; done
 
