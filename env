@@ -27,3 +27,8 @@ EC2_KEY=jeremy_key
 EC2_ZONE=us-east-1c
 SSH_ID=/var/datastore1/backups/ardent/amazon/jeremy_key.pem
 SSH_OPTS=" -i $SSH_ID -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
+
+# some global setup
+curl -V >/dev/null || { echo "ERROR: cannot execute 'curl' program"; exit 1; }
+mkdir -p /tmp/amazon
+

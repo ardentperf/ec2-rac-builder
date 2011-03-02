@@ -68,7 +68,6 @@ echo STORAGE $STORAGE
 
 until ssh $SSH_OPTS root@$ADDR date; do sleep 5; done
 
-mkdir -p /tmp/amazon
 cat <<EOF >/tmp/amazon/$1.compute
 #!/bin/bash
 

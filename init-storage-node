@@ -47,7 +47,6 @@ echo "$DOUT"
 until ssh $SSH_OPTS ubuntu@$ADDR date; do sleep 5; done
 
 DEVS=(sdf sdg sdh sdi sdj sdk sdl sdm)
-mkdir -p /tmp/amazon
 echo '' >/tmp/amazon/$1.iscsi.tmp
 echo '#!/bin/bash' >/tmp/amazon/$1.iscsi
 echo 'echo "ISCSITARGET_ENABLE=true" >/etc/default/iscsitarget' >>/tmp/amazon/$1.iscsi
