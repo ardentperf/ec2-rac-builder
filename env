@@ -34,5 +34,5 @@ ORACLE_SUPPORT_PASSWORD=`your-oracle-sso-password`
 # some global setup
 curl -V >/dev/null || { echo "ERROR: cannot execute 'curl' program"; exit 1; }
 mkdir -p /tmp/amazon
-rm /tmp/amazon/known_hosts
+rm /tmp/amazon/known_hosts 2>/dev/null
 
