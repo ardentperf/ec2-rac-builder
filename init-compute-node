@@ -29,6 +29,7 @@
 . $(dirname $0)/env
 
 # wait for node to come online
+echo "ec2 load instance" >&2
 DOUT="$(ec2din)"
 ADDR=$(echo "$DOUT"|awk '/running/{if($2=="'$1'"){print$4}}')
 while [ -z "$ADDR" ]; do
@@ -37,10 +38,12 @@ while [ -z "$ADDR" ]; do
   ADDR=$(echo "$DOUT"|awk '/running/{if($2=="'$1'"){print$4}}')
 done
 echo "$DOUT"
+echo $ADDR >/tmp/amazon/$1.ip
 
 CL=$(echo "$DOUT"|awk '/^TAG/{if(($3=="'$1'")&&($4=="Cluster")){print$5}}')
 
 # wait for storage and network nodes to come online
+echo "wait strg/ntwrk" >&2
 until [ `cat /tmp/amazon/cluster$CL-storage` -eq 1 ] && [ `cat /tmp/amazon/cluster$CL-network` -eq 1 ]; do sleep 5; done
 
 # get parameters
@@ -66,8 +69,9 @@ echo PUBLIC $PUBLIC
 echo PRIVATE $PRIVATE
 echo STORAGE $STORAGE
 
-until ssh $SSH_OPTS root@$ADDR date; do sleep 5; done
+until ssh $SSH_OPTS root@$ADDR date; do echo "boot O.S." >&2; sleep 5; done
 
+echo "configure O.S." >&2
 cat <<EOF >/tmp/amazon/$1.compute
 #!/bin/bash
 

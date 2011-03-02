@@ -25,10 +25,10 @@
 [ $1 -gt 0 ] || { echo "ERROR: cluster# must be number greater than 0" && exit 1; }
 
 
+echo "starting" >&2
 . $(dirname $0)/env
 echo 0 > /tmp/amazon/cluster$1-network
 
-#RUNOUT="$(ec2run -z $EC2_ZONE -t m1.small -k $EC2_KEY -n 2 -g default -g vpncubed-mgr ami-a6f504cf)"
 RUNOUT="$(ec2run -z $EC2_ZONE -t m1.small -k $EC2_KEY -n 2 -g default -g vpncubed-mgr ami-a89464c1)"
 echo "$RUNOUT"
 INST=($(echo "$RUNOUT"|awk '/^INSTANCE/{print$2}'))
@@ -48,4 +48,5 @@ I_PIDS="$I_PIDS $!"
 until [ -z "$(ps h $I_PIDS)" ]; do sleep 5; done
 
 echo 1 > /tmp/amazon/cluster$1-network
+echo "finished" >&2
 

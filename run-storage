@@ -32,6 +32,7 @@
 [ -n "$4" ] && [ $4 -gt 1 ] && { echo "Multi-node functionality not yet tested." && exit 2; }
 
 
+echo "starting" >&2
 . $(dirname $0)/env
 echo 0 > /tmp/amazon/cluster$1-storage
 
@@ -45,6 +46,7 @@ DEVS=(sdf sdg sdh sdi sdj sdk sdl sdm)
 I_PIDS=""
 for I in $INST; do
   if [ "$5" != "-local"  ]; then
+    echo "create/attach ebs" >&2
     VOL=0
     V_PIDS=""
     while [ $VOL -lt $3 ]; do
@@ -72,4 +74,4 @@ done
 until [ -z "$(ps h $I_PIDS)" ]; do sleep 5; done
 
 echo 1 > /tmp/amazon/cluster$1-storage
-
+echo "finished" >&2

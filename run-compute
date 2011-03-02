@@ -29,6 +29,7 @@
 [ -n "$3" ] && { [ $3 -lt 21 ] || { echo "ERROR: net-id-start must be between 1 and 20" && exit 1; }; };
 
 
+echo "starting" >&2
 . $(dirname $0)/env
 echo 0 > /tmp/amazon/cluster$1-compute
 
@@ -41,9 +42,11 @@ ec2tag $INST -t "Name=c$1-compute" -t "Cluster=$1" -t "Function=compute" &
 I_PIDS=""
 NET_ID=${3:-1}
 for I in $INST; do
+  [ $NET_ID -eq ${3:-1} ] && FIRSTNODE=$I
   $(dirname $0)/init-compute-node $I $NET_ID &
   I_PIDS="$I_PIDS $!"
   NET_ID=$((NET_ID + 1))
+  [ $NET_ID -gt 20 ] && break
 done
 
 # $! is PID of most recently executed bg job
@@ -51,5 +54,7 @@ done
 
 until [ -z "$(ps h $I_PIDS)" ]; do sleep 5; done
 
+cat /tmp/amazon/$FIRSTNODE.ip >>/tmp/amazon/cluster$1.ip
 echo 1 > /tmp/amazon/cluster$1-compute
+echo "finished" >&2
 

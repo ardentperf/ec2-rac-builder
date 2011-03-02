@@ -35,6 +35,7 @@ fi
 
 . $(dirname $0)/env
 
+echo "ec2 load instance" >&2
 DOUT="$(ec2din $1)"
 ADDR=$(echo "$DOUT"|awk '/running/{print$4}')
 while [ -z "$ADDR" ]; do
@@ -44,8 +45,9 @@ while [ -z "$ADDR" ]; do
 done
 echo "$DOUT"  
 
-until ssh $SSH_OPTS ubuntu@$ADDR date; do sleep 5; done
+until ssh $SSH_OPTS ubuntu@$ADDR date; do echo "boot O.S." >&2; sleep 5; done
 
+echo "setup iscsi" >&2
 DEVS=(sdf sdg sdh sdi sdj sdk sdl sdm)
 echo '' >/tmp/amazon/$1.iscsi.tmp
 echo '#!/bin/bash' >/tmp/amazon/$1.iscsi
