@@ -1,0 +1,29 @@
+#
+# Copyright 2010 Jeremy Schneider
+#
+# This file is part of EC2-RAC-BUILDER.
+#
+# EC2-RAC-BUILDER is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EC2-RAC-BUILDER is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+EC2_CERT=/var/datastore1/backups/ardent/amazon/cert-CWPFOP3MWRCKFBXHCBB7UOSNHWZ6H4RA.pem
+EC2_HOME=/home/jeremy/ec2-api-tools-1.3-62308
+EC2_PRIVATE_KEY=/var/datastore1/backups/ardent/amazon/pk-CWPFOP3MWRCKFBXHCBB7UOSNHWZ6H4RA.pem
+EC2_URL=https://us-east-1.ec2.amazonaws.com
+
+EC2_KEY=jeremy_key
+EC2_ZONE=us-east-1c
+SSH_ID=/var/datastore1/backups/ardent/amazon/jeremy_key.pem
+SSH_OPTS=" -i $SSH_ID -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "

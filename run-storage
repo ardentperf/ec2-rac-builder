@@ -1,0 +1,75 @@
+#!/bin/bash
+#
+# Copyright 2010 Jeremy Schneider
+#
+# This file is part of EC2-RAC-BUILDER.
+#
+# EC2-RAC-BUILDER is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EC2-RAC-BUILDER is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+[ -n "$DEBUG" ] && set -x
+
+[ -z "$3" ] && { echo "Usage: run-storage <cluster#> <sizeGB> <nVols> [<#nodes> [-local]]" && exit 1; }
+[ $1 -gt 0 ] || { echo "ERROR: cluster# must be number greater than 0" && exit 1; }
+[ $2 -gt 0 ] || { echo "ERROR: sizeGB must be number greater than 0" && exit 1; }
+[ $3 -gt 0 ] || { echo "ERROR nVols must be between 1 and 8" && exit 1; }
+[ $3 -lt 9 ] || { echo "ERROR nVols must be between 1 and 8" && exit 1; }
+[ -n "$4" ] && { [ $4 -gt 0 ] || { echo "ERROR: #nodes must be greater than 0" && exit 1; }; }
+[ -n "$5" ] && { [ "$5" == "-local"  ] || { echo "ERROR: unrecognized parameter '$5'" && exit 1; }; }
+
+[ -n "$4" ] && [ $4 -gt 1 ] && { echo "Multi-node functionality not yet tested." && exit 2; }
+
+
+. $(dirname $0)/env
+echo 0 > /tmp/amazon/cluster$1-storage
+
+RUNOUT="$(ec2run -z $EC2_ZONE -t m1.small -k $EC2_KEY -n ${4:-1} ami-a6f504cf)"
+echo "$RUNOUT"
+INST=$(echo "$RUNOUT"|awk '/^INSTANCE/{print$2}')
+
+ec2tag $INST -t "Name=c$1-storage" -t "Cluster=$1" -t "Function=storage" &
+
+DEVS=(sdf sdg sdh sdi sdj sdk sdl sdm)
+I_PIDS=""
+for I in $INST; do
+  if [ "$5" != "-local"  ]; then
+    VOL=0
+    V_PIDS=""
+    while [ $VOL -lt $3 ]; do
+      { 
+        VOLOUT="$(ec2addvol -z $EC2_ZONE -s $2)"
+        echo "$VOLOUT"
+        VOLNAME=$(echo "$VOLOUT"|awk '/^VOLUME/{print$2}')
+        ec2tag $VOLNAME -t "Name=c$1--$I" -t "Cluster=$1" &
+        ec2attvol $VOLNAME -i $I -d ${DEVS[$VOL]}
+      } &
+      V_PIDS="$V_PIDS $!"
+      VOL=$((VOL + 1))
+    done
+    $(dirname $0)/init-storage-node $I $3 "$V_PIDS" &
+    I_PIDS="$I_PIDS $!"
+  else
+    $(dirname $0)/init-storage-node $I $3 $5 $2 &
+    I_PIDS="$I_PIDS $!"
+  fi
+done
+
+# $! is PID of most recently executed bg job
+# ps h list_of_pids will give 1 line for each running process, empty when they all complete
+
+until [ -z "$(ps h $I_PIDS)" ]; do sleep 5; done
+
+echo 1 > /tmp/amazon/cluster$1-storage
+

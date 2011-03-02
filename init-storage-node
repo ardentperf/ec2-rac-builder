@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# Copyright 2010 Jeremy Schneider
+#
+# This file is part of EC2-RAC-BUILDER.
+#
+# EC2-RAC-BUILDER is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EC2-RAC-BUILDER is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+[ -n "$DEBUG" ] && set -x
+
+[ -z "$2" ] && { echo "Usage: init-storage-node <instance-id> <nVols> [ -local <sizeGB> | <wait-PIDs> ]" && exit 1; }
+[ $2 -gt -1 ] || { echo "ERROR nVols must be between 0 and 8" && exit 1; }
+[ $2 -lt 9 ] || { echo "ERROR nVols must be between 0 and 8" && exit 1; }
+
+if [ -n "$3" ]; then
+  if [ "$3" == "-local" ]; then
+    [ $4 -gt 0 ] || { echo "ERROR: sizeGB must be number greater than 0" && exit 1; }
+  else
+    until [ -z "$(ps h $3)" ]; do sleep 5; done
+  fi
+fi
+
+. $(dirname $0)/env
+
+DOUT="$(ec2din $1)"
+ADDR=$(echo "$DOUT"|awk '/running/{print$4}')
+while [ -z "$ADDR" ]; do
+  [ -z "$(echo "$DOUT"|grep ^INSTANCE)" ] && echo "$DOUT" && echo "ERROR - can't find instance '$1'" && exit 1
+  DOUT="$(ec2din $1)"
+  ADDR=$(echo "$DOUT"|awk '/running/{print$4}')
+done
+echo "$DOUT"  
+
+until ssh $SSH_OPTS ubuntu@$ADDR date; do sleep 5; done
+
+DEVS=(sdf sdg sdh sdi sdj sdk sdl sdm)
+mkdir -p /tmp/amazon
+echo '' >/tmp/amazon/$1.iscsi.tmp
+echo '#!/bin/bash' >/tmp/amazon/$1.iscsi
+echo 'echo "ISCSITARGET_ENABLE=true" >/etc/default/iscsitarget' >>/tmp/amazon/$1.iscsi
+echo 'cat <<EOF >>/etc/iet/ietd.conf' >>/tmp/amazon/$1.iscsi
+echo "Target iqn.2006-11.com.ardentperf:storage.$1.17" >>/tmp/amazon/$1.iscsi
+VOL=0
+while [ $VOL -lt $2 ]; do
+  if [ "$3" == "-local" ]; then
+    echo "dd if=/dev/zero of=/mnt/iscsi-${DEVS[$VOL]}.dat bs=1 count=0 seek=${4}G" >>/tmp/amazon/$1.iscsi.tmp
+    echo "  Lun $VOL Path=/mnt/iscsi-${DEVS[$VOL]}.dat,Type=fileio" >>/tmp/amazon/$1.iscsi
+  else
+    echo "  Lun $VOL Path=/dev/${DEVS[$VOL]},Type=blockio" >>/tmp/amazon/$1.iscsi
+  fi
+  VOL=$((VOL + 1))
+done
+echo 'EOF' >>/tmp/amazon/$1.iscsi
+cat /tmp/amazon/$1.iscsi.tmp >> /tmp/amazon/$1.iscsi
+
+ssh $SSH_OPTS ubuntu@$ADDR sudo apt-get -y install iscsitarget
+scp $SSH_OPTS /tmp/amazon/$1.iscsi ubuntu@$ADDR:/tmp/amazon-iscsi.sh
+ssh $SSH_OPTS ubuntu@$ADDR sudo chmod +x /tmp/amazon-iscsi.sh
+ssh $SSH_OPTS ubuntu@$ADDR sudo bash /tmp/amazon-iscsi.sh
+ssh $SSH_OPTS ubuntu@$ADDR sudo invoke-rc.d iscsitarget restart
+

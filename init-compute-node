@@ -1,0 +1,126 @@
+#!/bin/bash
+#
+# Copyright 2010 Jeremy Schneider
+#
+# This file is part of EC2-RAC-BUILDER.
+#
+# EC2-RAC-BUILDER is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EC2-RAC-BUILDER is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+[ -n "$DEBUG" ] && set -x
+
+[ -z "$2" ] && { echo "Usage: init-compute-node <instance-id> <network-id>" && exit 1; }
+[ $2 -gt 0 ] || { echo "ERROR: network-id must be between 1 and 20" && exit 1; };
+[ $2 -lt 21 ] || { echo "ERROR: network-id must be between 1 and 20" && exit 1; };
+
+
+. $(dirname $0)/env
+
+# wait for node to come online
+DOUT="$(ec2din)"
+ADDR=$(echo "$DOUT"|awk '/running/{if($2=="'$1'"){print$4}}')
+while [ -z "$ADDR" ]; do
+  [ -z "$(echo "$DOUT"|grep ^INSTANCE)" ] && echo "$DOUT" && echo "ERROR - can't find instance '$1'" && exit 1
+  DOUT="$(ec2din)"
+  ADDR=$(echo "$DOUT"|awk '/running/{if($2=="'$1'"){print$4}}')
+done
+echo "$DOUT"
+
+CL=$(echo "$DOUT"|awk '/^TAG/{if(($3=="'$1'")&&($4=="Cluster")){print$5}}')
+
+# wait for storage and network nodes to come online
+until [ `cat /tmp/amazon/cluster$CL-storage` -eq 1 ] && [ `cat /tmp/amazon/cluster$CL-network` -eq 1 ]; do sleep 5; done
+
+# get parameters
+IPUBLIC=$(echo "$DOUT"|awk '/^TAG/{if($5=="c'$CL'-switch-pub"){print$3}}')
+IPRIVATE=$(echo "$DOUT"|awk '/^TAG/{if($5=="c'$CL'-switch-priv"){print$3}}')
+ISTORAGE=$(echo "$DOUT"|awk '/^TAG/{if($5=="c'$CL'-storage"){print$3}}')
+
+for I in $IPUBLIC; do
+  T=$(echo "$DOUT"|awk '/running/{if($2=="'$I'"){print$4}}')
+  [ -n "$T" ] && PUBLIC=$T
+done
+for I in $IPRIVATE; do
+  T=$(echo "$DOUT"|awk '/running/{if($2=="'$I'"){print$4}}')
+  [ -n "$T" ] && PRIVATE=$T
+done
+STORAGE=""
+for I in $ISTORAGE; do
+  T=$(echo "$DOUT"|awk '/running/{if($2=="'$I'"){print$4}}')
+  [ -n "$T" ] && STORAGE="$STORAGE $T"
+done
+
+echo PUBLIC $PUBLIC
+echo PRIVATE $PRIVATE
+echo STORAGE $STORAGE
+
+until ssh $SSH_OPTS root@$ADDR date; do sleep 5; done
+
+mkdir -p /tmp/amazon
+cat <<EOF >/tmp/amazon/$1.compute
+#!/bin/bash
+
+  # storage
+  yum -y install iscsi-initiator-utils
+  echo InitiatorName=\$(/sbin/iscsi-iname) >/etc/iscsi/initiatorname.iscsi
+  cat <<_EOF2 >>/etc/iscsi/iscsid.conf
+EOF
+for A in $STORAGE; do echo "DiscoveryAddress = $A" >>/tmp/amazon/$1.compute; done
+cat <<EOF >>/tmp/amazon/$1.compute
+_EOF2
+  echo 'KERNEL=="sd*", BUS=="scsi", ENV{ID_VENDOR}=="IET", NAME="iscsi_%k", OWNER="oracle", GROUP="dba", MODE="660"' >/etc/udev/rules.d/55-openiscsi.rules
+  udevcontrol reload_rules
+  service iscsi start
+EOF
+for A in $STORAGE; do
+  echo "TARGET=\$(iscsiadm -m discovery -t st -p $A|awk '{print\$2}')" >>/tmp/amazon/$1.compute
+  echo "iscsiadm -m node -T \$TARGET --login" >>/tmp/amazon/$1.compute
+done
+
+
+cat <<EOF >>/tmp/amazon/$1.compute
+  # network
+  rpm -i /root/rpmforge-release-0.5.1-1.el5.rf.i386.rpm
+  yum -y install openvpn
+  cd \$HOME
+  wget --no-check-certificate https://vpncubed:rac@$PUBLIC:8000/credentials/cp$2.tar.gz
+  mv cp$2.tar.gz public.tar.gz
+  wget --no-check-certificate https://vpncubed:rac@$PRIVATE:8000/credentials/cp$2.tar.gz
+  mv cp$2.tar.gz private.tar.gz
+
+  cd /etc/openvpn/
+
+  tar xzvf \$HOME/public.tar.gz
+  mv ca.crt ca-public.crt
+  mv vpncubed.conf vpncubed-public.conf.orig
+  echo remote $PUBLIC 1194 >>vpncubed-public.conf.orig
+  sed '{s/^ca .*/ca ca-public.crt/;}' vpncubed-public.conf.orig >vpncubed-public.conf
+
+  tar xzvf \$HOME/private.tar.gz
+  mv ca.crt ca-private.crt
+  mv vpncubed.conf vpncubed-private.conf.orig
+  echo remote $PRIVATE 1194 >>vpncubed-private.conf.orig
+  sed '{s/^ca .*/ca ca-private.crt/;s/dev .*/dev tun1/;}' vpncubed-private.conf.orig >vpncubed-private.conf
+
+  service openvpn start
+
+  echo search ec2.ardentperf.com >>/etc/resolv.conf
+EOF
+
+scp $SSH_OPTS $(dirname $0)/rpmforge-release-0.5.1-1.el5.rf.i386.rpm root@$ADDR:/root/
+scp $SSH_OPTS /tmp/amazon/$1.compute root@$ADDR:/tmp/amazon-compute.sh
+ssh $SSH_OPTS root@$ADDR chmod +x /tmp/amazon-compute.sh
+ssh $SSH_OPTS root@$ADDR bash /tmp/amazon-compute.sh
+

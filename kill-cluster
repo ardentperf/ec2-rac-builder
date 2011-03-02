@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# Copyright 2010 Jeremy Schneider
+#
+# This file is part of EC2-RAC-BUILDER.
+#
+# EC2-RAC-BUILDER is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EC2-RAC-BUILDER is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+[ -n "$DEBUG" ] && set -x
+
+[ -z "$1" ] && { echo "Usage: kill-cluster <cluster#>" && exit 1; }
+[ $1 -gt 0 ] || { echo "ERROR: cluster# must be number greater than 0" && exit 1; }
+
+TAGOUT="$(ec2dtag -F key=Cluster -F value=$1)"
+echo "$TAGOUT"
+
+V_PIDS=""
+for VOL in $(echo "$TAGOUT"|awk '{if($2=="volume"){print $3}}'); do
+  ec2delvol $VOL &
+  V_PIDS="$V_PIDS $!"
+done
+
+INST=$(echo "$TAGOUT"|awk '{if($2=="instance"){print$3}}')
+[ -n "$INST" ] && ec2kill $INST
+
+rm -v /tmp/amazon/cluster${1}*
+
+[ -n "$V_PIDS" ] && until [ -z "$(ps h $V_PIDS)" ]; do sleep 5; done
+
