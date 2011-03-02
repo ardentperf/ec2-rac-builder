@@ -38,9 +38,9 @@ while [ -z "$ADDR" ]; do
   ADDR=$(echo "$DOUT"|awk '/running/{if($2=="'$1'"){print$4}}')
 done
 echo "$DOUT"
-echo $ADDR >/tmp/amazon/$1.ip
 
 CL=$(echo "$DOUT"|awk '/^TAG/{if(($3=="'$1'")&&($4=="Cluster")){print$5}}')
+echo $ADDR >/tmp/amazon/cluster$CL-n$2.ip
 
 # wait for storage and network nodes to come online
 echo "wait strg/ntwrk" >&2
@@ -119,9 +119,17 @@ cat <<EOF >>/tmp/amazon/$1.compute
   sed '{s/^ca .*/ca ca-private.crt/;s/dev .*/dev tun1/;}' vpncubed-private.conf.orig >vpncubed-private.conf
 
   service openvpn start
-  hostname n$2
 
+  cp /etc/hosts /root/hosts.orig
+  cp /root/hosts /etc/hosts
   echo search ec2.ardentperf.com >>/etc/resolv.conf
+  echo domain ec2.ardentperf.com >>/etc/resolv.conf
+  hostname n$2
+  cp /etc/sysconfig/network /etc/sysconfig/network.orig
+  sed 's/^HOSTNAME=.*/HOSTNAME=n$2.ec2.ardentperf.com/' /etc/sysconfig/network.orig >/etc/sysconfig/network
+
+  # other
+  telinit 3
   yum -y install screen
   cp /etc/ssh/sshd_config /etc/ssh/sshd_config.orig
   sed '{s/^PasswordAuthentication.*/PasswordAuthentication yes/;
@@ -137,10 +145,22 @@ ec2rac
 _EOF2
   cd /
   tar xvf /root/oracle-ssh.tar
+  cat /root/.ssh/authorized_keys >>/home/oracle/.ssh/authorized_keys
+
+  mkfs.ext3 /dev/sda2
+  echo "/dev/sda2                 /u01                    ext3    defaults 0 0" >>/etc/fstab
+  mount /u01
+
+  /etc/init.d/iptables stop
+  chkconfig iptables off
+
+  mkdir /u01/app
+  chown oracle:oinstall /u01/app
 EOF
 
 scp $SSH_OPTS $(dirname $0)/rpmforge-release-0.5.1-1.el5.rf.i386.rpm root@$ADDR:/root/ 2>&1
 scp $SSH_OPTS $(dirname $0)/oracle-ssh.tar root@$ADDR:/root/ 2>&1
+scp $SSH_OPTS $(dirname $0)/hosts root@$ADDR:/root/ 2>&1
 scp $SSH_OPTS /tmp/amazon/$1.compute root@$ADDR:/tmp/amazon-compute.sh 2>&1
 ssh $SSH_OPTS root@$ADDR chmod +x /tmp/amazon-compute.sh 2>&1
 ssh $SSH_OPTS root@$ADDR bash /tmp/amazon-compute.sh 2>&1

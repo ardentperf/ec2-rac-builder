@@ -79,5 +79,5 @@ done
 echo ""
 echo "username root/oracle"
 echo "password ec2rac"
-echo "hostname $(cat /tmp/amazon/cluster$1.ip)"
+echo "hostname $(cat /tmp/amazon/cluster$1-n1.ip)"
 
