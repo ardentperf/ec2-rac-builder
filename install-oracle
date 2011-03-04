@@ -1,0 +1,130 @@
+#!/bin/bash
+#
+# Copyright 2010 Jeremy Schneider
+#
+# This file is part of EC2-RAC-BUILDER.
+#
+# EC2-RAC-BUILDER is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EC2-RAC-BUILDER is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with EC2-RAC-BUILDER.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+[ -n "$DEBUG" ] && set -x
+
+[ -z "$2" ] && { echo "Usage: install-oracle <cluster#> <#nodes>" && exit 1; }
+[ $2 -gt 0 ] || { echo "ERROR: #nodes  must be between 1 and 20" && exit 1; };
+[ $2 -lt 21 ] || { echo "ERROR: #nodes must be between 1 and 20" && exit 1; };
+
+
+. $(dirname $0)/env
+
+ADDR=$(cat /tmp/amazon/cluster$1-n1.ip)
+
+N=1
+nodecomma="n1"
+nodespace="n1"
+ipspace="172.17.17.1"
+while [ $N -lt $2 ]; do
+  N=$((N + 1))
+  nodecomma="$nodecomma,n$N"
+  nodespace="$nodespace n$N"
+  ipspace="$ipspace 172.17.17.$N"
+done
+
+until ssh $SSH_OPTS root@$ADDR date 2>/dev/null; do sleep 5; done
+
+URLS_11202=(
+    'https://updates.oracle.com/Orion/Download/process_form/p10098816_112020_LINUX_1of7.zip?file_id=34840499&aru=13149166&userid=o-jeremy.schneider@ardentperf.com&email=jeremy.schneider@ardentperf.com&patch_password=&patch_file=p10098816_112020_LINUX_1of7.zip'
+    'https://updates.oracle.com/Orion/Download/process_form/p10098816_112020_LINUX_2of7.zip?file_id=34840557&aru=13149166&userid=o-jeremy.schneider@ardentperf.com&email=jeremy.schneider@ardentperf.com&patch_password=&patch_file=p10098816_112020_LINUX_2of7.zip'
+    'https://updates.oracle.com/Orion/Download/process_form/p10098816_112020_LINUX_3of7.zip?file_id=34840558&aru=13149166&userid=o-jeremy.schneider@ardentperf.com&email=jeremy.schneider@ardentperf.com&patch_password=&patch_file=p10098816_112020_LINUX_3of7.zip'
+    'https://updates.oracle.com/Orion/Download/process_form/p10098816_112020_LINUX_4of7.zip?file_id=34840559&aru=13149166&userid=o-jeremy.schneider@ardentperf.com&email=jeremy.schneider@ardentperf.com&patch_password=&patch_file=p10098816_112020_LINUX_4of7.zip'
+    'https://updates.oracle.com/Orion/Download/process_form/p10098816_112020_LINUX_5of7.zip?file_id=34840562&aru=13149166&userid=o-jeremy.schneider@ardentperf.com&email=jeremy.schneider@ardentperf.com&patch_password=&patch_file=p10098816_112020_LINUX_5of7.zip'
+    'https://updates.oracle.com/Orion/Download/process_form/p10098816_112020_LINUX_6of7.zip?file_id=34840571&aru=13149166&userid=o-jeremy.schneider@ardentperf.com&email=jeremy.schneider@ardentperf.com&patch_password=&patch_file=p10098816_112020_LINUX_6of7.zip'
+    'https://updates.oracle.com/Orion/Download/process_form/p10098816_112020_LINUX_7of7.zip?file_id=34840572&aru=13149166&userid=o-jeremy.schneider@ardentperf.com&email=jeremy.schneider@ardentperf.com&patch_password=&patch_file=p10098816_112020_LINUX_7of7.zip')
+
+# 11.2.0.1
+URLS=(
+    'http://download.oracle.com/otn/linux/oracle11g/R2/linux_11gR2_database_1of2.zip'
+    'http://download.oracle.com/otn/linux/oracle11g/R2/linux_11gR2_database_2of2.zip'
+    'http://download.oracle.com/otn/linux/oracle11g/R2/linux_11gR2_grid.zip')
+
+
+echo "$(date +%T)  downloading grid software from Oracle support" >&2
+ssh $SSH_OPTS root@$ADDR <<EOF 2>&1
+  mkdir -p /tmp/oracle
+  cd /tmp/oracle
+  curl -u $ORACLE_SUPPORT_USERNAME:$ORACLE_SUPPORT_PASSWORD --location-trusted -c /tmp/oracle/cookies -o file3.zip '${URLS[2]}'
+EOF
+
+date
+echo "$(date +%T)  extracting grid software (/tmp/oracle/grid)" >&2
+ssh $SSH_OPTS root@$ADDR <<EOF 2>&1
+  cd /tmp/oracle
+  unzip file3.zip
+EOF
+
+date
+echo "$(date +%T)  running cluvfy" >&2
+ssh $SSH_OPTS oracle@$ADDR <<EOF 2>&1
+  cd /tmp/oracle/grid
+  ssh-keyscan -t rsa,dsa $nodespace >>~/.ssh/known_hosts
+  ssh-keyscan -t rsa,dsa $ipspace >>~/.ssh/known_hosts
+  for H in n2; do scp ~/.ssh/known_hosts \$H:.ssh/; done
+  ./runcluvfy.sh stage -pre crsinst -n $nodecomma -verbose
+EOF
+
+date
+echo "$(date +%T)  installing grid infrastructure" >&2
+scp $SSH_OPTS $(dirname $0)/grid.rsp oracle@$ADDR:
+ssh $SSH_OPTS oracle@$ADDR <<EOF 2>&1
+  cd /tmp/oracle/grid
+  ./runInstaller -responseFile ~/grid.rsp -ignoreSysPrereqs -ignorePrereq -silent -waitforcompletion -loglevel finest -debug
+#  ./runInstaller -responseFile ~/grid.rsp -ignoreSysPrereqs -ignorePrereq -silent -waitforcompletion
+EOF
+
+date
+echo "$(date +%T)  running root scripts" >&2
+ssh $SSH_OPTS root@$ADDR <<EOF 2>&1
+  /u01/app/oraInventory/orainstRoot.sh
+  /u01/app/11.2.0/grid/root.sh
+EOF
+R_PIDS=""
+for N in $nodespace; do
+  [ "$N" == "n1" ] && break
+  { ssh $SSH_OPTS root@$(cat /tmp/amazon/cluster$1-$N.ip) <<EOF 2>&1
+      /u01/app/oraInventory/orainstRoot.sh
+      /u01/app/11.2.0/grid/root.sh
+EOF
+  } &
+  R_PIDS="$R_PIDS $!"
+done
+until [ -z "$R_PIDS" ] || [ -z "$(ps h $R_PIDS)" ]; do sleep 5; done
+
+echo "$(date +%T)  downloading database software from Oracle support" >&2
+ssh $SSH_OPTS root@$ADDR <<EOF 2>&1
+  mkdir -p /tmp/oracle
+  cd /tmp/oracle
+  curl -u $ORACLE_SUPPORT_USERNAME:$ORACLE_SUPPORT_PASSWORD --location-trusted -c /tmp/oracle/cookies -o file1.zip '${URLS[0]}'
+  curl -u $ORACLE_SUPPORT_USERNAME:$ORACLE_SUPPORT_PASSWORD --location-trusted -c /tmp/oracle/cookies -o file2.zip '${URLS[1]}'
+EOF
+
+date
+echo "$(date +%T)  extracting database software (/tmp/oracle/database)" >&2
+ssh $SSH_OPTS root@$ADDR <<EOF 2>&1
+  cd /tmp/oracle
+  unzip file1.zip
+  unzip file2.zip
+EOF
+
+date
+echo "$(date +%T)  finished!" >&2

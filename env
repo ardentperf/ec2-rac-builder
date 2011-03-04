@@ -26,7 +26,7 @@ EC2_URL=https://us-east-1.ec2.amazonaws.com
 EC2_KEY=jeremy_key
 EC2_ZONE=us-east-1c
 SSH_ID=/var/datastore1/backups/ardent/amazon/jeremy_key.pem
-SSH_OPTS=" -i $SSH_ID -o UserKnownHostsFile=/tmp/amazon/known_hosts -o StrictHostKeyChecking=no "
+SSH_OPTS=" -i $SSH_ID -o UserKnownHostsFile=/tmp/amazon/known_hosts -o StrictHostKeyChecking=no -o ServerAliveInterval=20 "
 
 ORACLE_SUPPORT_USERNAME=jeremy.schneider@ardentperf.com
 ORACLE_SUPPORT_PASSWORD=`your-oracle-sso-password`

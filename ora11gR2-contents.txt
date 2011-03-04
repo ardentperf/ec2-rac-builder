@@ -1,0 +1,95 @@
+[root@ip-10-114-86-219 oracle]# unzip -t file1.zip |awk -F/ '{print$1" "$2}'|sort -u
+
+Archive:  file1.zip
+No errors detected in compressed data of file1.zip.
+    testing: database doc
+    testing: database install
+    testing: database                 OK
+    testing: database readme.html     OK
+    testing: database response
+    testing: database rpm
+    testing: database runInstaller    OK
+    testing: database sshsetup
+    testing: database stage
+    testing: database welcome.html    OK
+
+Archive:  file2.zip
+No errors detected in compressed data of file2.zip.
+    testing: database stage
+
+Archive:  file3.zip
+No errors detected in compressed data of file3.zip.
+    testing: grid doc
+    testing: grid install
+    testing: grid                     OK
+    testing: grid readme.html         OK
+    testing: grid response
+    testing: grid rpm
+    testing: grid runcluvfy.sh        OK
+    testing: grid runInstaller        OK
+    testing: grid sshsetup
+    testing: grid stage
+    testing: grid welcome.html        OK
+
+Archive:  file4.zip
+No errors detected in compressed data of file4.zip.
+    testing: client doc
+    testing: client install
+    testing: client                   OK
+    testing: client readme.html       OK
+    testing: client response
+    testing: client runInstaller      OK
+    testing: client stage
+    testing: client welcome.html      OK
+
+Archive:  file5.zip
+No errors detected in compressed data of file5.zip.
+    testing: gateways doc
+    testing: gateways install
+    testing: gateways legacy
+    testing: gateways                 OK
+    testing: gateways readme.html     OK
+    testing: gateways response
+    testing: gateways runInstaller    OK
+    testing: gateways stage
+    testing: gateways welcome.html    OK
+
+Archive:  file6.zip
+No errors detected in compressed data of file6.zip.
+    testing: examples doc
+    testing: examples install
+    testing: examples                 OK
+    testing: examples readme.html     OK
+    testing: examples response
+    testing: examples runInstaller    OK
+    testing: examples stage
+    testing: examples welcome.html    OK
+
+Archive:  file7.zip
+No errors detected in compressed data of file7.zip.
+    testing: deinstall assistants
+    testing: deinstall bin
+    testing: deinstall bootstrap.pl   OK
+    testing: deinstall crs
+    testing: deinstall cv
+    testing: deinstall dc_ocm
+    testing: deinstall deinstall      OK
+    testing: deinstall deinstall.pl   OK
+    testing: deinstall deinstall.xml   OK
+    testing: deinstall diagnostics
+    testing: deinstall jlib
+    testing: deinstall jre
+    testing: deinstall lib
+    testing: deinstall logs
+    testing: deinstall mapfiles
+    testing: deinstall                OK
+    testing: deinstall oui
+    testing: deinstall perl
+    testing: deinstall readme.txt     OK
+    testing: deinstall response
+    testing: deinstall srvm
+    testing: deinstall sshUserSetup.sh   OK
+    testing: deinstall sysman
+    testing: deinstall usm
+    testing: deinstall utl
+
