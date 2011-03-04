@@ -100,8 +100,9 @@ ssh $SSH_OPTS root@$ADDR <<EOF 2>&1
 EOF
 R_PIDS=""
 for N in $nodespace; do
-  [ "$N" == "n1" ] && break
-  { ssh $SSH_OPTS root@$(cat /tmp/amazon/cluster$1-$N.ip) <<EOF 2>&1
+  [ "$N" == "n1" ] && continue
+  { 
+    ssh $SSH_OPTS root@$(cat /tmp/amazon/cluster$1-$N.ip) <<EOF 2>&1
       /u01/app/oraInventory/orainstRoot.sh
       /u01/app/11.2.0/grid/root.sh
 EOF
