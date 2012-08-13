@@ -19,12 +19,14 @@ along with EC2-RAC-BUILDER.  If not, see <http://www.gnu.org/licenses/>.
 
 Instructions:
 1. Sign up for Amazon Web Services (EC2)
-2. Sign up for OpenVPN Lite
+2. Sign up for VPN Cubed Lite*
 3. Install EC2 API Command Line Tools
 4. Install this package
 5. Edit "env" file
 6. Execute "run-cluster" script
 
+* Fixed on 13-Aug-2012 for historical reference even though this product
+  is no longer available (used to incorrectly say OpenVPN Lite)
 
 jeremy.schneider@ardentperf.com
 http://www.ardentperf.com
